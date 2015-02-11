@@ -22,20 +22,38 @@ __global__ void matrixMultiply(float *A, float *B, float *C, int numARows,
 	//create local copy of c
 	float localC = 0;
 	//create shared mem variables
+	__shared__ float tileA [16][16];
+	__shared__ float tileB [16][16];
+	__shared__ int iteration_number = (numAColumns-1)/16+1;
 
 	//loopstart
+	for(int i = 0; i < iteration_number; ++i)
+	{
 
 	//load tileA and tileB to shared mem
+	  if((idy < numARows) && (i*16+threadIdx.x < numAColumns))
+	    tileA[threadIdx.x][threadIdx.y] = A[(idy * numAColumns) + (i*16+threadIdx.x)];
+	  if((idx < numBColumns) && (i*16+threadIdx.y < numBRows))
+	    tileB[threadIdx.x][threadIdx.y] = B[(i*16+threadIdx.y) * numBColumns + idx];
 
 	__syncthreads();
 
 	//progress calc
+	  if(idx < numCColumns && idy < numCRows)
+	  {
+	    for(int k = 0; k < 16; ++k)
+	    {
+	      localC += tileA[k][threadIdx.y] * tileB[threadIdx.x][k];
+	    }
+	  }
 
 	__syncthreads();
 
 	//loopend
+	}
 
 	//write to global c
+	C[idy*numCColumns + idx] = localC;
 }
 
 int main(int argc, char **argv) {
