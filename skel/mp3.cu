@@ -24,7 +24,7 @@ __global__ void matrixMultiply(float *A, float *B, float *C, int numARows,
 	//create shared mem variables
 	__shared__ float tileA [16][16];
 	__shared__ float tileB [16][16];
-	int iteration_number = (numAColumns-1)/16+1;
+	int iteration_number = ((numAColumns-1)/16+1);
 
 	//loopstart
 	for(int i = 0; i < iteration_number; ++i)
@@ -33,19 +33,22 @@ __global__ void matrixMultiply(float *A, float *B, float *C, int numARows,
 	//load tileA and tileB to shared mem
 	  if((idy < numARows) && (i*16+threadIdx.x < numAColumns))
 	    tileA[threadIdx.x][threadIdx.y] = A[(idy * numAColumns) + (i*16+threadIdx.x)];
+	  else
+		tileA[threadIdx.x][threadIdx.y] = 0.0;
 	  if((idx < numBColumns) && (i*16+threadIdx.y < numBRows))
 	    tileB[threadIdx.x][threadIdx.y] = B[(i*16+threadIdx.y) * numBColumns + idx];
+	  else
+		tileB[threadIdx.x][threadIdx.y] = 0.0;
 
 	__syncthreads();
 
 	//progress calc
-	  if(idx < numCColumns && idy < numCRows)
+		
+	  for(int k = 0; k < 16; ++k)
 	  {
-	    for(int k = 0; k < 16; ++k)
-	    {
-	      localC += tileA[k][threadIdx.y] * tileB[threadIdx.x][k];
-	    }
+	    localC += tileA[k][threadIdx.y] * tileB[threadIdx.x][k];
 	  }
+	
 
 	__syncthreads();
 
@@ -53,7 +56,7 @@ __global__ void matrixMultiply(float *A, float *B, float *C, int numARows,
 	}
 
 	//write to global c
-	if(idx < numAColumns && idy < numCRows)
+	if(idx < numCColumns && idy < numCRows)
 	  C[idy*numCColumns + idx] = localC;
 }
 
@@ -86,10 +89,10 @@ int main(int argc, char **argv) {
 	hostC = (float * ) malloc(numCRows * numCColumns * sizeof(float));
   wbTime_stop(Generic, "Importing data and creating memory on host");
 
-  wbLog(TRACE, "The dimensions of A are ", numARows, " x ", numAColumns);
-  wbLog(TRACE, "The dimensions of B are ", numBRows, " x ", numBColumns);
-  wbLog(TRACE, "The dimensions of C are ", numCRows, " x ", numCColumns);
-
+  wbLog(TRACE, "The dimensions of A are ", numAColumns, " x ", numARows);
+  wbLog(TRACE, "The dimensions of B are ", numBColumns, " x ", numBRows);
+  wbLog(TRACE, "The dimensions of C are ", numCColumns, " x ", numCRows);
+  
   wbTime_start(GPU, "Allocating GPU memory.");
   ////@@ Allocate GPU memory here
 	wbCheck(cudaMalloc( (void**) &deviceA, numARows *  numAColumns * sizeof(float)));
