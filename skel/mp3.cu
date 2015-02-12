@@ -53,7 +53,8 @@ __global__ void matrixMultiply(float *A, float *B, float *C, int numARows,
 	}
 
 	//write to global c
-	C[idy*numCColumns + idx] = localC;
+	if(idx < numAColumns && idy < numCRows)
+	  C[idy*numCColumns + idx] = localC;
 }
 
 int main(int argc, char **argv) {
