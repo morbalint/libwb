@@ -24,7 +24,7 @@ __global__ void matrixMultiply(float *A, float *B, float *C, int numARows,
 	//create shared mem variables
 	__shared__ float tileA [16][16];
 	__shared__ float tileB [16][16];
-	__shared__ int iteration_number = (numAColumns-1)/16+1;
+	int iteration_number = (numAColumns-1)/16+1;
 
 	//loopstart
 	for(int i = 0; i < iteration_number; ++i)
