@@ -30,7 +30,7 @@ __global__ void imgConvolution(const float* __restrict__ M, float* Img, float* O
 
 
   //load tiles to shared memory
-  __shared__ float Tile[Tile_Width][Tile_Width][3]; //expression mush have constant value :( //TODO
+  __shared__ float Tile[Tile_Width][Tile_Width][Channels]; //expression mush have constant value :(
   if(idx >= 0 && idy >= 0 && idx < imageWidth && idy < imageHeight)
     Tile[threadIdx.x][threadIdx.y][threadIdx.z] = Img[(idy*imageWidth + idx)*imageChannels + idc];
   else
@@ -69,43 +69,8 @@ int main(int argc, char* argv[]) {
     wbImage_t inputImage;
     wbImage_t outputImage;
     float *  hostInputImageData;
-    /*
-    float hostInputImageData2[] = {
-      0.48f,   0.14f,   0.54f,   0.74f,   0.18f,   0.12f,   0.14f,   0.34f,   0.90f,   0.31f,   0.65f,   0.72f,
-      0.85f,   0.00f,   0.66f,   0.19f,   0.27f,   0.97f,   0.87f,   0.35f,   0.06f,   0.93f,   0.93f,   0.69f,
-      0.82f,   0.29f,   0.46f,   0.11f,   0.93f,   0.80f,   0.23f,   0.90f,   0.94f,   0.80f,   0.22f,   0.21f,
-      0.24f,   0.73f,   0.53f,   0.16f,   0.02f,   0.59f,   0.10f,   0.68f,   0.48f,   0.31f,   0.08f,   0.17f,
-      0.88f,   0.01f,   0.64f,   0.94f,   0.23f,   0.04f,   0.05f,   0.82f,   0.36f,   0.89f,   0.27f,   0.22f,
-      0.98f,   0.27f,   0.90f,   0.80f,   0.74f,   0.57f,   0.29f,   0.33f,   0.60f,   0.01f,   0.78f,   0.84f,
-      0.93f,   0.40f,   0.59f,   0.20f,   0.00f,   0.44f,   0.73f,   0.47f,   0.68f,   0.53f,   0.73f,   0.44f,
-      0.19f,   0.22f,   0.78f,   0.40f,   0.36f,   0.68f,   0.12f,   0.60f,   0.18f,   0.13f,   0.30f,   0.33f,
-      0.29f,   0.11f,   0.68f,   0.43f,   0.33f,   0.64f,   0.89f,   0.45f,   0.30f,   0.86f,   0.65f,   0.46f,
-      0.58f,   0.06f,   0.62f,   0.23f,   0.53f,   0.31f,   0.85f,   0.15f,   0.16f,   0.50f,   0.75f,   0.91f,
-      0.51f,   0.95f,   0.44f,   0.60f,   0.91f,   0.96f,   0.11f,   0.50f,   0.24f,   0.01f,   0.57f,   0.33f,
-      0.42f,   0.42f,   0.14f,   0.61f,   0.46f,   0.75f,   0.44f,   0.68f,   0.36f,   0.97f,   0.69f,   0.91f,
-      0.01f,   0.93f,   0.62f,   0.03f,   0.48f,   0.41f,   0.29f,   0.96f,   0.56f,   0.80f,   0.03f,   0.57f,
-      0.56f,   0.81f,   0.40f,   0.31f,   0.10f,   0.18f,   0.14f,   0.90f,   0.31f,   0.05f,   0.11f,   0.41f,
-      0.86f,   0.19f,   0.65f,   0.78f,   0.60f,   0.79f,   0.20f,   0.88f,   0.78f,   0.54f,   0.22f,   0.72f,
-      0.19f,   0.49f,   0.48f,   0.21f,   0.79f,   0.31f,   0.74f,   0.50f,   0.21f,   0.46f,   0.59f,   0.05f,
-      0.85f,   0.06f,   0.57f,   0.83f,   0.18f,   0.01f,   0.12f,   0.80f,   0.28f,   0.03f,   0.72f,   0.18f,
-      0.30f,   0.33f,   0.93f,   0.85f,   0.31f,   0.19f,   0.03f,   0.47f,   0.99f,   0.96f,   0.95f,   0.56f,
-      0.63f,   0.24f,   0.60f,   0.73f,   0.16f,   0.88f,   0.68f,   0.38f,   0.02f,   0.51f,   0.31f,   0.46f,
-      0.92f,   0.31f,   0.47f,   0.74f,   0.10f,   0.05f,   0.23f,   0.92f,   0.21f,   0.24f,   0.61f,   0.03f,
-      0.66f,   0.15f,   0.81f,   0.66f,   0.85f,   0.24f,   0.90f,   0.07f,   0.49f,   0.15f,   0.49f,   0.63f,
-      0.06f,   0.33f,   0.10f,   0.93f,   0.04f,   0.93f,   0.81f,   0.83f,   0.99f,   0.95f,   0.02f,   0.52f,
-      0.91f,   0.13f,   0.57f,   0.65f,   0.66f,   0.71f,   0.59f,   0.03f,   0.97f,   0.22f,   0.76f,   0.40f,
-      0.32f,   0.81f,   0.35f,   0.78f,   0.72f,   0.46f,   0.79f,   0.45f,   0.01f,   0.90f,   0.57f,   0.71f
-    };*/
     float * hostOutputImageData;
     float * hostMaskData;
-    /*
-    float hostMaskData2[] = {
-      0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-      0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-      0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-      0.0f, 0.0f, 0.0f, 0.0f, 0.0f
-    };*/
     float * deviceInputImageData;
     float * deviceOutputImageData;
     float * deviceMaskData;
@@ -124,9 +89,6 @@ int main(int argc, char* argv[]) {
     imageWidth = wbImage_getWidth(inputImage);
     imageHeight = wbImage_getHeight(inputImage);
     imageChannels = wbImage_getChannels(inputImage);
-    //imageWidth = 12;
-    //imageHeight = 12;
-    //imageChannels = 2;
 
     // log image and mask sizes;
     wbLog(TRACE, "Mask dimensions = ", maskColumns, " x ", maskRows);
@@ -185,16 +147,7 @@ int main(int argc, char* argv[]) {
     wbTime_stop(Copy, "Copying data from the GPU");
 
     wbTime_stop(GPU, "Doing GPU Computation (memory + compute)");
-/*
-    for(int y = 0; y < 12; ++y)
-    {
-      for (int x = 0; x < 12; ++x)
-      {
-	printf("%4.2f, %4.2f ", hostOutputImageData[(12*y+x)*2], hostOutputImageData[(12*y+x)*2 + 1]);
-      }
-      printf("\n");
-    }
-*/
+
     wbSolution(arg, outputImage);
 
     cudaFree(deviceInputImageData);
