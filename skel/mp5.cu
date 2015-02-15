@@ -15,20 +15,15 @@
         }                                                  \
     } while(0)
 
-__global__ void scan(float * v, int len)
+__global__ void scan(float * v, int len, int superstride)
 {
   //@@ Modify the body of this function to complete the functionality of
   //@@ the scan on the device
   //@@ You may need multiple kernel calls; write your kernels before this
   //@@ function and call them from here
 
-//building tree
-  int superstride = 1;
-  while(superstride < len)
-  //for(int superstride = 1; superstride < len; superstride *= (BLOCK_SIZE*2))
+  if((blockIdx.x * blockDim.x * 2 * superstride) < len)
   {
-    if(blockIdx.x * blockDim.x * 2 * superstride < len)
-    {
     //indexing
     int idx1 = (blockIdx.x * blockDim.x *2 + threadIdx.x +1)*superstride-1;
     int idx2 = (blockIdx.x * blockDim.x *2 + threadIdx.x+blockDim.x +1)*superstride-1;
@@ -51,7 +46,7 @@ __global__ void scan(float * v, int len)
 	XY[index] += XY[index-stride];
       __syncthreads();
     }
-
+    __syncthreads();
     for (int stride = BLOCK_SIZE/2; stride > 0; stride /= 2)
     {
       __syncthreads();
@@ -61,34 +56,23 @@ __global__ void scan(float * v, int len)
 	XY[index + stride] += XY[index];
       }
     }
-
-    //write back
-    if(idx1 < len) v[idx1] = XY[threadIdx.x]; 
-    if(idx2 < len) v[idx2] = XY[threadIdx.x + blockDim.x];
     __syncthreads();
-    }
-    superstride *= (BLOCK_SIZE*2);
-    __threadfence(); ///@syncblock;
+    if(idx1 < len) v[idx1] = XY[threadIdx.x];
+    if(idx2 < len) v[idx2] = XY[threadIdx.x + blockDim.x];
   }
-  //turning point
-  if (superstride != len)
-    superstride /= (BLOCK_SIZE*2);
-  superstride /= (BLOCK_SIZE*2);
-  while (superstride > 0)
+
+}
+
+__global__ void scan2(float * v, int len, int superstride)
+{
+  int idxb = ((blockIdx.x+1) * blockDim.x *2)*superstride-1;
+  if(idxb+superstride < len)
   {
-    
-    int idxb = ((blockIdx.x+1) * blockDim.x *2)*superstride-1;
-    if(idxb+superstride < len)
-    {
-      float value = v[idxb];
-      int idxt1 = ((blockIdx.x+1) * blockDim.x *2 + threadIdx.x +1)*superstride-1;
-      int idxt2 = ((blockIdx.x+1) * blockDim.x *2 + threadIdx.x+blockDim.x +1)*superstride-1;
-      if(idxt1 < len) v[idxt1] += value;
-      if(idxt2 < len && (threadIdx.x+1 < blockDim.x)) v[idxt2] += value; //huge control divergence here :( i am sorry i had no choiche.
-    }
-    superstride /= (BLOCK_SIZE*2);
-//    __syncthreads();
-    __threadfence(); ///@syncblock;
+    float value = v[idxb];
+    int idxt1 = ((blockIdx.x+1) * blockDim.x *2 + threadIdx.x +1)*superstride-1;
+    int idxt2 = ((blockIdx.x+1) * blockDim.x *2 + threadIdx.x+blockDim.x +1)*superstride-1;
+    if(idxt1 < len) v[idxt1] += value;
+    if(idxt2 < len && (threadIdx.x+1 < blockDim.x)) v[idxt2] += value; //huge control divergence here :( i am sorry i had no choiche.
   }
 }
 
@@ -97,7 +81,7 @@ int main(int argc, char ** argv) {
     float * hostInput; // The input 1D list
     float * hostOutput; // The output list
     float * deviceInput;
-    float * deviceOutput;
+  //  float * deviceOutput;
     int numElements; // number of elements in the list
 
     args = wbArg_read(argc, argv);
@@ -127,8 +111,29 @@ int main(int argc, char ** argv) {
     wbTime_start(Compute, "Performing CUDA computation");
     //@@ Modify this to complete the functionality of the scan
     //@@ on the deivce
-    scan<<<GridDim,BlockDim>>>(deviceInput, numElements);
+    int superstride = 1;
+    while(superstride < numElements)
+    {
+      GridDim.x = (((numElements-1)/2)/BLOCK_SIZE)/superstride +1;
+      printf("GridDim.x=%d, ss=%d\n",GridDim.x, superstride);
+      scan<<<GridDim,BlockDim>>>(deviceInput, numElements, superstride);
+      superstride *= (2*BLOCK_SIZE);
+      cudaDeviceSynchronize();
+    }
+    cudaDeviceSynchronize();
+    if(superstride != numElements)
+      superstride /= (2*BLOCK_SIZE);
+    superstride /= (2*BLOCK_SIZE);
+    printf("Turning point ss = %d\n",superstride);
+    while(superstride > 0)
+    {
 
+      GridDim.x = (((numElements-1)/2)/BLOCK_SIZE)/superstride +1;
+      printf("GridDim.x=%d, ss=%d\n",GridDim.x, superstride);
+      scan2<<<GridDim,BlockDim>>>(deviceInput, numElements, superstride);
+      superstride /= (2*BLOCK_SIZE);
+      cudaDeviceSynchronize();
+    }
     cudaDeviceSynchronize();
     wbTime_stop(Compute, "Performing CUDA computation");
 
